@@ -1,0 +1,22 @@
+{
+    "name": "communication_protocol_library",
+    "version": "0.1",
+    "description": "An OwnTech library that implements a basic communication protocol between a Twist board and a computer via a console.",
+    "keywords": "OwnTech Power Electronics Communication Protocol",
+    "repository":
+    {
+      "type": "git", 
+      "url": "https://github.com/luizvilla/communication_protocol_library"
+    },
+    "authors":
+    [
+      {
+        "name": "Luiz Villa",
+        "email": "Luiz.Villa@lass.fr"
+      }
+    ],
+    "license": "LGPLV2.1",
+    "homepage": "https://www.owntech.org/"
+}
+
+

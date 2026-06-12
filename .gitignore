@@ -2,4 +2,10 @@ __pycache__
 __pycache__/*
 .vscode
 .vscode/*
+.idea/*
 *.csv
+venv/
+venv2/
+data/
+!Results_03_26/measurement_data/**/data/
+!Results_03_26/measurement_data/**/data/*.csv

@@ -14,66 +14,103 @@ Copyright (c) 2021-2024 LAAS-CNRS
   You should have received a copy of the GNU Lesser General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-SPDX-License-Identifier: LGPL-2.1
+SPDX-License-Identifier: LGLPV2.1
 """
 
 """
-@brief  file containing version to communicate with twist.
+@brief  This is a class for the factory test of Twitst 1.4.1
 
-@author thomas.walter@laas.fr
+@author Luiz Villa <luiz.villa@laas.fr>
+@author Guillaume Arthaud 
+@author Thomas Walter 
 """
-
 
 #Python modules import
 import time, serial
 
-class Twist_Device:
-    def __init__(self, twist_port, baudrate = 115200, bytesize = 8, parity = "N", stopbits = 1, timeout_sec = 2, product_id = 0x0100, vendor_id = 0x2fe3):
+class Shield_Device:
+    def __init__(self, shield_port, shield_type = "TWIST", baudrate = 115200, bytesize = 8, parity = "N", stopbits = 1, timeout_sec = 2, product_id = 0x0101, vendor_id = 0x2fe3):
 
-        self.twist_serialObj = serial.Serial(port = twist_port)
-        self.CommPortDescWithoutPort = "TWIST"
+        self.shield_serialObj = serial.Serial(port = shield_port)
+        self.CommPortDescWithoutPort = shield_type
+        self.shield_type = shield_type
+
         self.baudRate = baudrate
         self.bytesize = bytesize
         self.parity = parity
         self.stopbits = stopbits
         self.Timeout_s = timeout_sec
-        self.twist_pid = product_id
-        self.twist_vid = vendor_id
+        self.shield_pid = product_id
+        self.shield_vid = vendor_id
 
-        self.twist_serialObj.baudrate = baudrate
-        self.twist_serialObj.bytesize = bytesize
-        self.twist_serialObj.parity = parity
-        self.twist_serialObj.stopbits = stopbits
-        self.twist_serialObj.timeout = timeout_sec
+        self.shield_serialObj.baudrate = baudrate
+        self.shield_serialObj.bytesize = bytesize
+        self.shield_serialObj.parity = parity
+        self.shield_serialObj.stopbits = stopbits
+        self.shield_serialObj.timeout = timeout_sec
+
+        twist_message_length = 16
+        twist_message_index = { "D1": {"index": 0},
+                                "V1": {"index": 1},
+                                "I1": {"index": 2},
+                                "M1": {"index": 3},
+                                "T1": {"index": 4},
+                                "D2": {"index": 5},
+                                "I2": {"index": 6},
+                                "V2": {"index": 7},
+                                "M2": {"index": 8},
+                                "T2": {"index": 9},
+                                "VH": {"index": 10},
+                                "IH": {"index": 11},
+                                "AN": {"index": 12},
+                                "CE": {"index": 13},
+                                "CR": {"index": 14},
+                                "RS": {"index": 15}}
 
 
-        self.twist_message_index = {"D1": {"index": 0},
+        ownverter_message_length = 21
+        ownverter_message_index = { "D1": {"index": 0},
                                     "V1": {"index": 1},
                                     "I1": {"index": 2},
                                     "M1": {"index": 3},
-                                    "D2": {"index": 4},
-                                    "I2": {"index": 5},
-                                    "V2": {"index": 6},
-                                    "M2": {"index": 7},
-                                    "VH": {"index": 8},
-                                    "IH": {"index": 9},
-                                    "AN": {"index": 10},
-                                    "CE": {"index": 11},
-                                    "CR": {"index": 12},
-                                    "RS": {"index": 13}}
+                                    "T1": {"index": 4},
+                                    "D2": {"index": 5},
+                                    "I2": {"index": 6},
+                                    "V2": {"index": 7},
+                                    "M2": {"index": 8},
+                                    "T2": {"index": 9},
+                                    "D2": {"index": 10},
+                                    "I3": {"index": 11},
+                                    "V3": {"index": 12},
+                                    "M3": {"index": 13},
+                                    "T3": {"index": 14},
+                                    "VH": {"index": 15},
+                                    "IH": {"index": 16},
+                                    "AN": {"index": 17},
+                                    "CE": {"index": 18},
+                                    "CR": {"index": 19},
+                                    "RS": {"index": 20}}
+
+        if self.shield_type == "TWIST" :
+            self.shield_message_index = twist_message_index
+            self.message_lenght = twist_message_length
+
+        else :
+            self.shield_message_index = ownverter_message_index
+            self.message_lenght = ownverter_message_length
 
 
     def setSerialPort(self, port):
         self.CommPort = port
 
     def setVendorID(self, vendor_id):
-        self.twist_pid = vendor_id
+        self.shield_pid = vendor_id
 
     def setProductID(self, product_id):
-        self.twist_vid = product_id
+        self.shield_vid = product_id
 
     def getSerialObjID(self):
-        return self.twist_serialObj
+        return self.shield_serialObj
 
 
     def sendMessage(self,Message):
@@ -103,13 +140,13 @@ class Twist_Device:
             chunk = Message[start_index:end_index]
 
             # Send the chunk via serial
-            self.twist_serialObj.write(chunk.encode('utf-8'))
+            self.shield_serialObj.write(chunk.encode('utf-8'))
 
             # Wait for a short period
-            time.sleep(0.1)
+            time.sleep(0.002)
 
         # Send the end of line
-        self.twist_serialObj.write(b'\r\n')
+        self.shield_serialObj.write(b'\r\n')
 
 
     def getMeasurement(self, measurement_type):
@@ -120,7 +157,8 @@ class Twist_Device:
         Parameters:
             - self: Instance of the class containing the measurement methods.
             - measurement_type (str): Type of measurement to retrieve.
-              Supported types are 'V1', 'V2', 'VH', 'I1', 'I2', 'IH', 'M1', 'M2','CT'.
+              Supported types are 'V1', 'V2', 'V3','VH', 'I1', 'I2', 'I3','IH', 'M1', 'M2', 'M3', 'T1', 'T2', 'T3','CT'.
+
 
         Returns:
             - Measurement value corresponding to the specified measurement type.
@@ -128,21 +166,30 @@ class Twist_Device:
         Raises:
             - ValueError: If an invalid measurement type is provided.
         """
-        if measurement_type not in self.twist_message_index:
-            raise ValueError("Invalid measurement type. Supported types are 'V1', 'V2', 'VH', 'I1', 'I2', 'IH', 'M1', 'M2','CT'.")
+        if measurement_type not in self.shield_message_index:
+            raise ValueError("Invalid measurement type. Supported types are:    \
+                             'V1', 'V2', 'V3','VH',                             \
+                             'I1', 'I2', 'I3','IH',                             \
+                             'M1', 'M2', 'M3',                                  \
+                             'T1', 'T2', 'T3'.")
 
         # time.sleep(self.short_delay)
-        index_meas = self.twist_message_index[measurement_type]["index"]
+        index_meas = self.shield_message_index[measurement_type]["index"]
 
-        self.twist_serialObj.reset_input_buffer()
+        self.shield_serialObj.reset_input_buffer()
 
         size_check = False
         while size_check == False:
-            reading = self.get_TWIST_line()
-            reading = [elem.replace('{', '').replace('}', '') for elem in reading] #eliminates curly brackets from the message
-            if len(reading) == 14 : size_check = True               #14 is the length of the communication buffer
+            reading = self.getLine()
+            reading = [elem.replace('{', '').replace('}', '') for elem in reading]  #eliminates curly brackets from the message
+            if len(reading) == self.message_lenght : size_check = True              #tests that the buffer has the right length
 
         return float(reading[index_meas])
+
+    def resetSerialBuffer(self):
+        self.shield_serialObj.reset_input_buffer()
+
+
 
     def getLine(self, split_character = ':'):
         """
@@ -155,12 +202,12 @@ class Twist_Device:
         Returns:
             - The whole line split along the character.
         """
-        reading = self.twist_serialObj.readline().decode('utf-8').split(split_character)
+        reading = self.shield_serialObj.readline().decode('utf-8').split(split_character)
 
         return reading
 
 
-    def sendCommand(self, action, *args, delay=0.2):
+    def sendCommand(self, action, *args, delay=0.02):
         """
         Generate and send a message to the Twist board based on the specified action and optional parameters.
 
@@ -194,8 +241,9 @@ class Twist_Device:
             >>> sendCommand("LEG", "A", "ON")
         """
 
-        action_types = ("LEG", "CAPA", "DRIVER", "BUCK", "BOOST", "REFERENCE", "DUTY", "PHASE_SHIFT", "DEAD_TIME_RISING", "DEAD_TIME_FALLING", "CALIBRATE")
+        action_types = ("LEG", "CAPA", "DRIVER", "BUCK", "BOOST", "REFERENCE", "DUTY", "PHASE_SHIFT", "DEAD_TIME_RISING", "DEAD_TIME_FALLING", "CALIBRATE", "FREQUENCY")
 
+        # Dictionary mapping actions to their message formats
         message_formats = {
             "IDLE": "d_i",
             "POWER_OFF": "d_f",
@@ -206,9 +254,10 @@ class Twist_Device:
             "BUCK": lambda leg, state: f"s_{leg.upper()}_b_{state.lower()}",
             "BOOST": lambda leg, state: f"s_{leg.upper()}_t_{state.lower()}",
             "REFERENCE": lambda leg, variable, value: f"s_{leg.upper()}_r_{variable.upper()}_{value:.5f}",
-            "PHASE_SHIFT": lambda leg, value: f"s_{leg.upper()}_p_.{value}",
-            "DEAD_TIME_RISING": lambda leg, value: f"s_{leg.upper()}_x_.{value}",
-            "DEAD_TIME_FALLING": lambda leg, value: f"s_{leg.upper()}_z_.{value}",
+            "PHASE_SHIFT": lambda leg, value: f"s_{leg.upper()}_p_{value}",
+            "DEAD_TIME_RISING": lambda leg, value: f"s_{leg.upper()}_x_{value}",
+            "DEAD_TIME_FALLING": lambda leg, value: f"s_{leg.upper()}_z_{value}",
+            "FREQUENCY": lambda leg, value: f"s_{leg.upper()}_f_{value}",
             "DUTY": lambda leg, value: f"s_{leg.upper()}_d_{value:.5f}",
             "CALIBRATE": lambda variable, gain, offset: f"k_{variable.upper()}_g_{gain:.8f}_o_{offset:.8f}",
             }

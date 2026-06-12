@@ -14,7 +14,7 @@ Copyright (c) 2021-2024 LAAS-CNRS
   You should have received a copy of the GNU Lesser General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-SPDX-License-Identifier: LGPL-2.1
+SPDX-License-Identifier: LGLPV2.1
 """
 
 """
@@ -26,7 +26,7 @@ SPDX-License-Identifier: LGPL-2.1
 
 from serial.tools import list_ports
 
-def find_twist_device_ports(target_vid=0x2fe3, target_pid=0x0100, num_devices = 1):
+def find_shield_device_ports(target_vid=0x2fe3, target_pid=0x0100, num_devices = 1):
     found_devices = []  # List to store the ports for the found devices
 
     # Get a list of all available ports
@@ -44,13 +44,15 @@ def find_twist_device_ports(target_vid=0x2fe3, target_pid=0x0100, num_devices = 
     # If the loop completes without finding both devices, return an empty list
     return []
 
-target_vid = 0x2fe3
-target_pid = 0x0100
-num_devices = 1
+if __name__ == "__main__":
 
-target_ports = find_twist_device_ports(target_vid, target_pid, num_devices)
+    target_vid = 0x2fe3
+    target_pid = 0x0101
+    num_devices = 1
 
-if len(target_ports) == num_devices:
-    print("Ports for devices with target VID and PID:", target_ports)
-else:
-    print("Unable to find ports for both devices.")
+    target_ports = find_shield_device_ports(target_vid, target_pid, num_devices)
+
+    if len(target_ports) == num_devices:
+        print("Ports for devices with target VID and PID:", target_ports)
+    else:
+        print("Unable to find ports for both devices.")
