@@ -71,7 +71,7 @@ def run_script(script_name):
     run_in_thread(_run)
 
 def launch_supervisor():
-    run_script("supervisor_script_v1_2.py")
+    run_script("supervisor_script.py")
 
 def launch_generate_json():
     run_script("Opposition_GenerateJson_v1_4.py")
