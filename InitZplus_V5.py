@@ -3,7 +3,7 @@ import time
 import traceback
 import os
 import re
-from supervisor_script_v1_2 import runner  # Assure-toi que runner(jsonfile) est la fonction pour exécuter un test JSON
+from supervisor_script import runner  # Assure-toi que runner(jsonfile) est la fonction pour exécuter un test JSON
 from SinglePoint_SPIN_v1_1 import single_point
 
 tdk_addr = "ASRL/dev/ttyACM0::INSTR"

@@ -9,16 +9,25 @@ NEW (Oct. 2025): Open dataset of measured switching losses
 ------------
 From October 2025, a dataset has been created and is hosted at zenodo.org, associated with a license CC BY SA 4.0
 
-Rouger, N., & Lavado Villa, L. F. (2025). Dataset from switching loss measurement test bench by opposition method [Data set]. Zenodo. https://doi.org/10.5281/zenodo.17296030
+Rouger, N., & Lavado Villa, L. F. (2025). Dataset from switching loss measurement test bench by opposition method [Data set]. 
+Zenodo. https://doi.org/10.5281/zenodo.17296029
 
-At the moment, this dataset contains measured total losses with 200 V Silicon MOSFETs, and extracted Eoff switching losses.
+
+NEW (Sept. 2026): Cleaned up code, with sub classes. Tested OK!
+Use branch: ReleaseCandidate_OnlyScripts (this branch!)
+------------
+The dataset has been updated at Zenodo. See version 3
+https://doi.org/10.5281/zenodo.17296029
+
+At the moment, this dataset contains measured total losses with 200 V Silicon MOSFETs, and extracted Eoff switching losses, which still need further calibration.
+
 
 
 Description
 ------------
 (This part is a work in progress - must be updated)
 
-A supervisor has been written `Supervisor_v1_2.py` which will do the test sequence:
+A supervisor has been written `Supervisor_script.py` which will do the test sequence:
 1) Config microcontroller and turn ON gate signal
 2) Start logging DC current at DMM
 3) Sweep DC bus Voltage (ramp up)
@@ -29,15 +38,8 @@ A supervisor has been written `Supervisor_v1_2.py` which will do the test sequen
 8) Return to initial state
 
 
-*Video: Demo - Python Supervisor v1.2*
-<video src="https://github.com/user-attachments/assets/0cd5cf06-7bd1-42ec-848b-38305e3359d9" width="360" height="480" controls></video>
+The project is started by interface.py
 
-Typical DC current measurement during sweep is:
-*Image : DC current at HV bus: power supply turn ON, DC bus ramp up (75 V), Phase shift sweep, DC bus ramp down, power supply turn OFF*
-
-<img src="./images/Figure_2-75V-Sweep15to45step5.png" width="300">
-
-Previous functions such as `main.py` script creates all the objects of each instrument of the test bench and provides multiple code functions for later developing the appropriate algorithm.
 
 Requirements
 ------------
@@ -72,9 +74,9 @@ pip install -r requirements.txt
 ```bash
 python -m pyvisa.info
 ```
-4. Run the `Supervisor_v1_2.py` or `main.py` script:
+4. Run the `interface.py` script:
 ```bash
-python Supervisor_v1_2.py
+python interface.py
 ```
 or 
 ```bash

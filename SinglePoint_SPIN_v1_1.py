@@ -45,9 +45,9 @@ def single_point(rm: visa.ResourceManager):
 
     # PWM parameters
     DutyPWM = 0.485 # 48.5%   1 <> 100% duty. Must consider the deadtime and freq values for dead time compensation!
-    frequencyPWM = 75e3 #100 kHz switching frequency
+    frequencyPWM = 49e3 #100 kHz switching frequency
     DeadTimePWM = 300 #ns, deadtime
-    InitialPhaseShiftPWM = 75 #0 or 15° initial & final phase shift between Leg1 and Leg2
+    InitialPhaseShiftPWM = 50 #0 or 15° initial & final phase shift between Leg1 and Leg2
     DeltaDutyInit = 0. # can be 0.01 for example
 
     leg_to_test = "LEG1"                               #leg to be tested in this script

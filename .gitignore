@@ -1,11 +1,35 @@
-__pycache__
-__pycache__/*
-.vscode
-.vscode/*
-.idea/*
-*.csv
+# Ignorer les fichiers Python compilés
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignorer les environnements virtuels
 venv/
-venv2/
-data/
-!Results_03_26/measurement_data/**/data/
-!Results_03_26/measurement_data/**/data/*.csv
+env/
+.venv/
+
+# Ignorer les fichiers de configuration IDE/éditeur (ex: VSCode, PyCharm)
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignorer les fichiers de log et les bases de données locales
+*.log
+*.sqlite
+
+# Ignorer les fichiers système (ex: macOS, Windows)
+.DS_Store
+Thumbs.db
+
+# Ignorer les fichiers de dépendances (si tu utilises pip)
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Ignorer les fichiers générés par des outils comme Jupyter
+.ipynb_checkpoints/
+
+# Ignorer les fichiers de build (ex: setuptools)
+build/
+dist/
+*.egg-info/
