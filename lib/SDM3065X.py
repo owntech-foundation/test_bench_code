@@ -76,6 +76,7 @@ class SDM3065X:
                 self.dmm_for_current_name = dmm_current_addr or config.get('DMMforCurrent', 'TCPIP0::169.254.126.119::inst0::INSTR')
             
             # Load DMM parameters
+            self.dmm_current_cali = [0.0002, 0.002, 0.02, 0.2, 2, 10]
             self.dmm_init_delay = config.get('dmm_init_delay', 2)
             self.dmm_cmd_delay = config.get('dmm_cmd_delay', 0.1)
             self.dmm_current_nplc = config.get('dmm_current_nplc', 0.5)
@@ -83,6 +84,8 @@ class SDM3065X:
             self.dmm_current_sample_count = config.get('dmm_current_sample_count', 3)
             self.dmm_voltage_sample_count = config.get('dmm_voltage_sample_count', 3)
             self.nb_points_i = config.get('nbPointsI', 10)
+            self.VoltageWrite = config.get('VoltageWrite', 30)
+            self.imax = config.get('Imax', 4)
 
             self.trig_source = config.get('trigSource', 'IMM')
             self.dmm_param_mode_lecture = config.get('dmm_param_mode_lecture', 'INITiate')
@@ -102,6 +105,8 @@ class SDM3065X:
             self.dmm_current_sample_count = 3
             self.dmm_voltage_sample_count = 3
             self.nb_points_i = 10
+            self.VoltageWrite = 30
+            self.imax = 4
 
             self.trig_source = 'IMM'
             # {INTernal|EXTernal|TIMer|BUS|IMM|MANual|ECLock}
@@ -203,10 +208,19 @@ class SDM3065X:
         """Test bench auto setup, Sets up the DMM for current measurements with the configured parameters.
         This method sends a series of SCPI commands to the current DMM to configure it for DC current measurements
         """
+        Ptot = self.VoltageWrite * self.imax
+        Ploss = Ptot * 0.02 #Estimation of the power loss in the system, assuming 2% of total power is lost
+        Iloss = Ploss / self.VoltageWrite
+
+        for i in range(len(self.dmm_current_cali)):
+            if Iloss < self.dmm_current_cali[i]:
+                calib = self.dmm_current_cali[i]
+                break
+
         self.dmm_send_cmd(self.dmm_for_current, [
             "*RST",
             "*CLS", #temporary clear status to avoid errors
-            "CONF:CURR:DC 0.2", #0.2
+            f"CONF:CURR:DC {calib}", #0.2
             "CURR:DC:AZ OFF",
             "TRIG:SOUR EXT;SLOP POS",
             f"TRIG:COUN {self.nb_points_i}",
