@@ -14,7 +14,7 @@
     "power_supply_ramp_delay": 0.1,
 
     "DutyPWM": 0.5,
-    "frequencyPWM": [50000,60000,70000],
+    "frequencyPWM": [50000],
     "DeadTimePWM": 600,
     "VoltageLimit": 100,
     "CurrentLimit": 0.3,
@@ -25,6 +25,7 @@
     "DMMforCurrent": "TCPIP0::169.254.126.119::inst0::INSTR",
     "DMMforVoltage": "TCPIP0::169.254.126.120::inst0::INSTR",
     "AddressOSCILLO": "TCPIP0::169.254.186.255::inst0::INSTR",
+    "AddressOSCILLOhigh": "TCPIP0::169.254.16.248::inst0::INSTR",
     
     "SaveEachFramePICTURE": 1,
     "SaveEachFrameDATA": 0,
@@ -39,17 +40,36 @@
         }
     ],
 
+    "ScopeAutoMeasureHigh": [
+        {
+            "type": "FALLINGEDGES",
+            "channel": 4
+        },
+        {
+            "type": "FALLINGEDGES",
+            "channel": 2
+        },
+        {
+            "type": "AMPL",
+            "channel": 1
+        },
+        {
+            "type": "TOP",
+            "channel": 3
+        }
+    ],
+
     "shield_vid": 12259,
     "shield_pid": 257,
     "TotalR": 0.42,
     "InductorL": 40,
-    "Sequence": 4,
+    "Sequence": 3,
     "Imin": 0.5,
-    "Imax": 3.5,
-    "Vmin": 60,
-    "Vmax": 70,
-    "nbPointsI": 4,
-    "nbPointsV": 2,
+    "Imax": 1.5,
+    "Vmin": 40,
+    "Vmax": 40,
+    "nbPointsI": 3,
+    "nbPointsV": 1,
     "PhaseInit": 0,
     "PhaseFinal": 180,
     "PhaseStep": 30,

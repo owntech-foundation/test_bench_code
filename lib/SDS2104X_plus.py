@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from turtle import position
 import pylab as pl 
 import struct 
 import gc
@@ -13,8 +14,7 @@ import math
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-#from TDKZ650_1_U import TDKZ650_1_U
-#from tools import TOOL
+
 
 
 class SDS2104X_plus:
@@ -22,7 +22,7 @@ class SDS2104X_plus:
     Class to manage SDS2104X_plus resources.
     """
 
-    def __init__(self, config_path: str = None, ressource_manager: visa.ResourceManager = None):
+    def __init__(self, config_path: str = None, ressource_manager: visa.ResourceManager = None, address: str = None):
         """
         Initialize the SDS2104X_plus.
         
@@ -30,88 +30,72 @@ class SDS2104X_plus:
         ----------
         config_path : str, optional
             Path to JSON config file containing power supply parameters
+        address : str, optional
+            Address of the oscilloscope
         """
 
         # Create PyVISA Resource Manager
         if ressource_manager is None:
-            #self.rm = visa.ResourceManager()
-            self.rm = None
+            self.rm = visa.ResourceManager()
+            #self.rm = None
         else:
             self.rm = ressource_manager
             print("RM sds")
+
+            # ========================  ========================
+        # Global variables 
+        # (Modify the following global variables according to the model). 
+        # --------------------------------------------------------- 
+        #SDS_RSC = "USB0::0xF4EC::0x1011::SDS2PEEC6R0224::INSTR"
+        #CHANNEL = "C1" 
         
         self.oscilloscope = None
-        self.oscilloscope_name = 'USB0::0xF4EC::0x1011::SDS2PDDX6R0968::INSTR'
+        self.oscilloscope_name = address #'USB0::0xF4EC::0x1011::SDS2PDDX6R0968::INSTR'
         self.Sequence = 1
         self.delayOscillo = 0.1
         self.SaveEachFramePICTURE = False
         self.SaveEachFrameDATA = False
         self.result_output_path = ""
         self.scopeMeasure = []
+        self.scopeMeasurehigh = []
+        self.VoltageWrite = 100
+        self.imax = 5
+        self.timestep = 0.1
+        self.voltage_step = 4
+        self.delay_com = 0.6
+        self.nb_points_i = 4
+        self.tdiv_enum = [200e-12,500e-12, 1e-9, 2e-9, 5e-9, 10e-9, 20e-9, 50e-9, 100e-9, 200e-9, 500e-9, 1e-6, 2e-6, 5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 500e-6,
+                          1e-3, 2e-3, 5e-3, 10e-3, 20e-3, 50e-3, 100e-3, 200e-3, 500e-3, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000] 
+        self.HORI_NUM = 10 
+        self.frequencyPWM = 50000
         
         # Load configuration if provided
         if config_path and os.path.exists(config_path):
             with open(config_path, 'r') as f:
                 config = json.load(f)
             
-            self.oscilloscope_name = config.get('AddressOSCILLO', self.oscilloscope_name)
+            #self.oscilloscope_name = config.get('AddressOSCILLO', self.oscilloscope_name)
             self.Sequence = config.get('Sequence', self.Sequence)
             self.delayOscillo = config.get('delayOscillo', self.delayOscillo)
             self.SaveEachFramePICTURE = config.get('SaveEachFramePICTURE', self.SaveEachFramePICTURE)
             self.SaveEachFrameDATA = config.get('SaveEachFrameDATA', self.SaveEachFrameDATA)
             self.result_output_path = config.get('result_output_path', self.result_output_path)
             self.scopeMeasure = config.get('ScopeAutoMeasure', self.scopeMeasure)
+            self.scopeMeasurehigh = config.get('ScopeAutoMeasureHigh', self.scopeMeasurehigh)
+            self.VoltageWrite = config.get('VoltageWrite', self.VoltageWrite)
+            self.imax = config.get('Imax', self.imax)
+            self.timestep = config.get('timestep', self.timestep)
+            self.voltage_step = config.get('voltage_step', self.voltage_step)
+            self.delay_com = config.get('delay_com', self.delay_com)
+            self.nb_points_i = config.get('nbPointsI', self.nb_points_i)
+            self.frequencyPWM = config.get('frequencyPWM', self.frequencyPWM)
 
         else:
             print(f"Config file not found at {config_path}. Using default parameters.")
             # Default parameters if no config file
 
 
-
-    # ========================  ========================
-    # Global variables 
-    # (Modify the following global variables according to the model). 
-    # --------------------------------------------------------- 
-    #SDS_RSC = "USB0::0xF4EC::0x1011::SDS2PEEC6R0224::INSTR"
-    #CHANNEL = "C1" 
-    HORI_NUM = 10 
-    tdiv_enum = [200e-12,500e-12, 1e-9, 2e-9, 5e-9, 10e-9, 20e-9, 50e-9, 100e-9, 200e-9, 500e-9, 1e-6, 2e-6, 5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 500e-6,
-                  1e-3, 2e-3, 5e-3, 10e-3, 20e-3, 50e-3, 100e-3, 200e-3, 500e-3, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000] 
-
-    def oscilloscope_save_results(self):
-        if self.oscilloscope is None:
-            raise ValueError("Oscilloscope is not opened.")
-        self.HistoryMode()
-        meas_results = {}
-        for frame in range(1, self.Sequence + 1, 1):
-            self.SetFrame(frame)
-            frame_name = f'Data{frame}'  #TODO: get a better name that includes measurement parameters
-
-            # Save CSV data for each frame if needed
-            if self.SaveEachFrameDATA:
-                self.oscilloscope_save_data_all_channels(frame_name)
-
-            # Save screenshot for each frame if needed
-            if self.SaveEachFramePICTURE:
-                #controloscillo.SavePicture(self.oscilloscope, frame_name, self.result_output_path.replace('/','\\')) # Non inverted
-                #controloscillo.SavePicture(self.oscilloscope, frame_name, self.result_output_path.replace('/','\\'), True) # inverted
-                self.SavePicture(frame_name, self.result_output_path) # Non inverted
-                self.SavePicture(frame_name, self.result_output_path, True) # inverted
-
-
-            frame_meas = {}
-
-            # Put measurement results in a json file
-            for i, measureParam in enumerate(self.scopeMeasure):
-                frame_meas.update({f'{i+1}': {'type': measureParam.get('type'),
-                                              'channel': measureParam.get('channel'),
-                                              'value': self.GetMeasure(i + 1)}})
-            print(frame_meas)
-            meas_results.update({frame_name: frame_meas})
-
-        # Write one json file with measurements for all frames
-        with open(f'{self.result_output_path}/results.json', "w") as f:
-            json.dump(meas_results, f, indent=4)
+    
 
     def open_oscilloscope(self):
         """
@@ -148,21 +132,186 @@ class SDS2104X_plus:
             finally:
                 self.oscilloscope = None
 
-    def ExportResultToCSV(self, String, name, path):
-        file_name= f"csv-{name}.csv"
-        print(file_name)
-        f = open(os.path.join(path, file_name), 'w')
-        f.write(String) #Give your csv text here.
-        ## Python will convert \n to os.linesep
-        f.close()
 
 
-    def PlotValues(self, data):
-        x=data.split(",")
-        dataFormatted=[float(i) for i in x]
-        plt.plot(dataFormatted)
-        plt.ylabel('current')
-        #plt.show()
+
+#############################
+##   SETUP OSCILLOSCOPE    ##
+#############################
+
+    def oscilloscope_setup(self):
+        """
+        Initializes the oscilloscope (e.g., configures trigger settings).
+        Uses an external library method (controloscillo.ConfigTrigger).
+        """
+        if self.oscilloscope is None:
+            raise ValueError("Oscilloscope is not opened.")
+        self.ConfigTrigger()
+        self.ConfigMeasure()
+        self.ConfigSequence(self.Sequence)
+        for i, measureParam in enumerate(self.scopeMeasure):
+            self.NewMeasure(i+1, measureParam)
+
+
+        one_period = 1/self.frequencyPWM
+        one_period = (one_period*1.2) / 10 #10 div on screen
+
+        for i in range(0, len(self.tdiv_enum)):
+            if self.tdiv_enum[i] >= one_period:
+                timebase = self.tdiv_enum[i]
+                break
+
+        #Config Display
+        #Config timebase for the oscilloscope, based on the PWM frequency
+        self.oscilloscope.write(f':TIMebase:SCALe  {timebase}') #Timebase  / div
+        nb_div = 8 #display has 8 divs on the screen
+
+
+        #C1 config display
+
+        VoltperDiv = 4 #Fixed value for the display of VGS (Actually, VGS was constant)
+
+        self.oscilloscope.write(f':C1:VDIV {VoltperDiv}V') #Channel 1 scale
+        self.oscilloscope.write(f':CHANnel1:OFFset {-VoltperDiv*2}') #the signal will be displayed on the bottom 5 divs of the screen with a little marge
+
+        #C2 config display
+        CurrentDiv = (self.imax*2)/(nb_div-4) #Calculate the voltage per division
+        CurrentDiv = CurrentDiv + (0.25-(CurrentDiv%0.25)) #Around the value to the next multiple of 4 to facilitate the reading of the oscilloscope
+        self.oscilloscope.write(':C2:UNIT A')
+        self.oscilloscope.write(f':C2:ATTN 10') # current prob ratio x10 100mV/A
+        self.oscilloscope.write(f':C2:VDIV {CurrentDiv}')
+        self.oscilloscope.write(f':CHANnel2:OFFset 0V')
+
+        #C3 config display
+
+        VoltperDiv = (self.VoltageWrite*2)/5 #Calculate the voltage per division
+        VoltperDiv = VoltperDiv + (5-(VoltperDiv%5)) #Around the value to the next multiple of 5 to facilitate the reading of the oscilloscope
+        #print(f"{VoltperDiv}   ")
+        #self.oscilloscope.write(f':CHANnel3:SCALe {VoltperDiv}') #Channel 1 scale
+        self.oscilloscope.write(f':C3:VDIV {VoltperDiv}V') #Channel 1 scale
+        self.oscilloscope.write(f':CHANnel3:OFFset 0V') #the signal will be displayed on the bottom 5 divs of the screen with a little marge
+
+        #C4 config display
+
+        VoltperDiv = (self.VoltageWrite)/4 #Calculate the voltage per division
+        VoltperDiv = VoltperDiv + (5-(VoltperDiv%5)) #Around the value to the next multiple of 5 to facilitate the reading of the oscilloscope
+        #print(f"{VoltperDiv}   ")
+        #self.oscilloscope.write(f':CHANnel3:SCALe {VoltperDiv}') #Channel 1 scale
+        self.oscilloscope.write(f':C4:VDIV {VoltperDiv}V') #Channel 1 scale
+        self.oscilloscope.write(f':CHANnel4:OFFset {-VoltperDiv*3.5}') #the signal will be displayed on the bottom 5 divs of the screen with a little marge    
+
+
+    def oscilloscope_high_setup(self):
+        """
+        Configures the oscilloscope for high basetime acquisition.
+        """
+        if self.oscilloscope is None:
+            raise ValueError("Oscilloscope is not opened.")
+
+        # Configure trigger settings 
+        self.oscilloscope.write('TRIG:TYPE  EDGE ') # Edge
+        self.oscilloscope.write(':TRIGger:EDGE:SLOPe  RISing') # Rising Edge
+        self.oscilloscope.write(':TRIGger:EDGE:SOURce  C3') #Trigger Source C3
+        #self.oscilloscope.write(':TRIGger:EDGE:SOURce  C1') #Trigger Source C1
+
+        #self.oscilloscope.write(':TRIGger:EDGE:LEVel  2.00E-01') #Trigger Level 200mA
+        self.oscilloscope.write(f':TRIGger:EDGE:LEVel  {self.voltage_step}') #Trigger Level 4V
+        self.oscilloscope.write('TRIG:MODE  SINGle') # Single
+
+        #Enable measurements and disable segmented memory 
+        self.ConfigMeasure()
+        self.oscilloscope.write(':ACQuire:SEQuence OFF') #Segmented Memory OFF
+
+        #config display 
+
+        delay_ramp = (self.VoltageWrite/self.voltage_step) * self.timestep * 2
+        delay_current_ramp = self.nb_points_i * self.delay_com
+        delay_total = delay_ramp + delay_current_ramp #theorical delay for one essay
+        delay_total = delay_total/10 #10 div on screen 
+
+        for i in range(0, len(self.tdiv_enum)):
+            if self.tdiv_enum[i] >= delay_total:
+                timebase = self.tdiv_enum[i]
+                break
+
+        self.oscilloscope.write(f':TIMebase:SCALe  {timebase}') #Timebase  / div
+        position = -timebase * 5 
+        self.oscilloscope.write(f'TRDL {position}') #Trigger Delay
+        nb_div = 8 #display has 8 divs on the screen 
+        usable_div = nb_div - 3 #value chosen to have a good display, the signal will be display on 5 divs of the screen
+        
+
+        #C1 config display
+        CurrentDiv = (self.imax*2*1.2)/(nb_div-2) #Calculate the voltage per division
+        CurrentDiv = CurrentDiv + (0.5-(CurrentDiv%0.5)) #Around the value to the next multiple of 4 to facilitate the reading of the oscilloscope
+        self.oscilloscope.write(':C1:UNIT A')
+        self.oscilloscope.write(f':C1:ATTN 10') # current prob ratio x10 100mV/A
+        self.oscilloscope.write(f':C1:VDIV {CurrentDiv}')
+        self.oscilloscope.write(f':CHANnel1:OFFset 0V')
+
+        #C3 config display
+
+        VoltperDiv = self.VoltageWrite/usable_div #Calculate the voltage per division
+        VoltperDiv = VoltperDiv + (5-(VoltperDiv%5)) #Around the value to the next multiple of 5 to facilitate the reading of the oscilloscope
+        #print(f"{VoltperDiv}   ")
+        #self.oscilloscope.write(f':CHANnel3:SCALe {VoltperDiv}') #Channel 1 scale
+        self.oscilloscope.write(f':C3:VDIV {VoltperDiv}V') #Channel 1 scale
+        self.oscilloscope.write(f':CHANnel3:OFFset {-VoltperDiv*3.5}') #the signal will be displayed on the bottom 5 divs of the screen with a little marge
+
+        #Measurement setup
+        self.oscilloscope_setup_measure_high()
+
+    def oscilloscope_setup_clean(self):
+        """
+        Configures the oscilloscope after the test to avoid any issues with the next test. 
+        """
+        if self.oscilloscope is None:
+            raise ValueError("Oscilloscope is not opened.")
+
+        # Configure trigger settings 
+        self.oscilloscope.write('TRIG:TYPE  EDGE ') # Edge
+        self.oscilloscope.write(':TRIGger:EDGE:SLOPe  RISing') # Rising Edge
+        #self.oscilloscope.write(':TRIGger:EDGE:SOURce  C3') #Trigger Source C3
+        self.oscilloscope.write(':TRIGger:EDGE:SOURce  C1') #Trigger Source C1
+
+        self.oscilloscope.write(':TRIGger:EDGE:LEVel  10.00E-01') #Trigger Level 1V
+        #self.oscilloscope.write(':TRIGger:EDGE:LEVel  4.00E+00') #Trigger Level 4V
+        self.oscilloscope.write('TRIG:MODE  SINGle') # Single
+
+        #Disable measurements and segmented memory 
+        self.oscilloscope.write(':MEASure OFF')
+        #self.oscilloscope.write(':MEASure:MODE ADVanced')
+        #self.oscilloscope.write(':MEASure:ADVanced:STYLe M1')
+        self.oscilloscope.write(':ACQuire:SEQuence OFF') #Segmented Memory OFF
+
+        self.oscilloscope.write(f':TIMebase:SCALe  2e-6') # 2µs / div
+
+        self.oscilloscope.write(f'TRDL 0') #Trigger Delay
+
+
+    def oscilloscope_setup_measure_high(self):
+        self.oscilloscope.write(':MEASure ON')
+        self.oscilloscope.write(':MEASure:MODE ADVanced')
+        self.oscilloscope.write(':MEASure:ADVanced:STYLe M1')
+    
+        # P1 : falling edge count sur C4
+        self.oscilloscope.write(':MEASure:ADVanced:P1:TYPE FALLINGEDGES')   
+        self.oscilloscope.write(':MEASure:ADVanced:P1:SOURce1 C4')
+
+        # P2 : falling edge count sur C2
+        self.oscilloscope.write(':MEASure:ADVanced:P2:TYPE FALLINGEDGES')
+        self.oscilloscope.write(':MEASure:ADVanced:P2:SOURce1 C2')
+
+        # P3 : I amplitude sur C1 (déjà en A grâce à ATTN configuré précédemment)
+        self.oscilloscope.write(':MEASure:ADVanced:P3:TYPE AMPL')
+        self.oscilloscope.write(':MEASure:ADVanced:P3:SOURce1 C1')
+
+        # P4 : Vtop sur C3
+        self.oscilloscope.write(':MEASure:ADVanced:P4:TYPE TOP')
+        self.oscilloscope.write(':MEASure:ADVanced:P4:SOURce1 C3')
+
+        # Fermer le panneau de config mesure resté ouvert
+        self.oscilloscope.write('MENU OFF')
 
 
     def ConfigTrigger(self):
@@ -200,6 +349,107 @@ class SDS2104X_plus:
         self.oscilloscope.write(':HISTORy:INTERval 200.00E-03')  # 200 ms time interval for playing history
         self.oscilloscope.write(':HISTORy:PLAy FORWards')  # PLay automatically all frames
 
+####################################
+##   Save results OSCILLOSCOPE    ##
+####################################
+
+    def oscilloscope_save_results(self):
+        """
+        Saves oscilloscope results from the low timebase oscilloscope, including CSV data and screenshots for each frame if needed
+        """
+        if self.oscilloscope is None:
+            raise ValueError("Oscilloscope is not opened.")
+        self.HistoryMode()
+        meas_results = {}
+        for frame in range(1, self.Sequence + 1, 1):
+            self.SetFrame(frame)
+            frame_name = f'Data{frame}'  #TODO: get a better name that includes measurement parameters
+
+            # Save CSV data for each frame if needed
+            if self.SaveEachFrameDATA:
+                self.oscilloscope_save_data_all_channels(frame_name)
+
+            # Save screenshot for each frame if needed
+            if self.SaveEachFramePICTURE:
+                #controloscillo.SavePicture(self.oscilloscope, frame_name, self.result_output_path.replace('/','\\')) # Non inverted
+                #controloscillo.SavePicture(self.oscilloscope, frame_name, self.result_output_path.replace('/','\\'), True) # inverted
+                self.SavePicture(frame_name, self.result_output_path) # Non inverted
+                self.SavePicture(frame_name, self.result_output_path, True) # inverted
+
+
+            frame_meas = {}
+
+            # Put measurement results in a json file
+            for i, measureParam in enumerate(self.scopeMeasure):
+                frame_meas.update({f'{i+1}': {'type': measureParam.get('type'),
+                                              'channel': measureParam.get('channel'),
+                                              'value': self.GetMeasure(i + 1)}})
+            print(frame_meas)
+            meas_results.update({frame_name: frame_meas})
+
+        # Write one json file with measurements for all frames
+        with open(f'{self.result_output_path}/results.json', "w") as f:
+            json.dump(meas_results, f, indent=4)
+
+    def oscilloscope_save_results_high(self):
+        """
+        Saves oscilloscope results from the high timebase oscilloscope, including CSV data and screenshots if needed
+        """
+        if self.oscilloscope is None:
+            raise ValueError("Oscilloscope is not opened.")
+
+        # Save CSV data for each frame if needed
+        if self.SaveEachFrameDATA:
+            self.oscilloscope_save_data_all_channels("Data_High")
+
+        # Save screenshot for each frame if needed
+        if self.SaveEachFramePICTURE:
+            self.oscilloscope_save_picture(f"Frames_High_{self.VoltageWrite}V")
+
+        # frame_meas = {}
+        # meas_results = {}
+
+        # # Put measurement results in a json file
+        # for i, measureParam in enumerate(self.scopeMeasure):
+        #     frame_meas.update({f'{i+1}': {'type': measureParam.get('type'),
+        #                                     'channel': measureParam.get('channel'),
+        #                                     'value': self.GetMeasure(i + 1)}})
+        # print(frame_meas)
+        # #meas_results.update({frame_name: frame_meas})
+
+        # # Write one json file with measurements for all frames
+        # with open(f'{self.result_output_path}/resultsHigh.json', "w") as f:
+        #     json.dump(meas_results, f, indent=4)
+
+        frame_meas = {}
+        for i, measureParam in enumerate(self.scopeMeasurehigh):
+            frame_meas[f'{i+1}'] = {
+                'type': measureParam.get('type'),
+                'channel': measureParam.get('channel'),
+                'value': self.GetMeasure(i + 1)
+            }
+
+        print(frame_meas)
+
+        with open(f'{self.result_output_path}/resultsHigh.json', "w") as f:
+            json.dump(frame_meas, f, indent=4)
+
+    def ExportResultToCSV(self, String, name, path):
+        file_name= f"csv-{name}.csv"
+        print(file_name)
+        f = open(os.path.join(path, file_name), 'w')
+        f.write(String) #Give your csv text here.
+        ## Python will convert \n to os.linesep
+        f.close()
+
+
+
+    def PlotValues(self, data):
+        x=data.split(",")
+        dataFormatted=[float(i) for i in x]
+        plt.plot(dataFormatted)
+        plt.ylabel('current')
+        #plt.show()
 
     def SetFrame(self, num: int):
         self.oscilloscope.write(f':HISTORy:FRAMe {num}')
@@ -416,18 +666,7 @@ class SDS2104X_plus:
         print(f'Channel: {channel} - Frame / Name: {name}')
         del recv_all,time_value,volt_value,recv,convert_data,recv_rtn
     
-    def oscilloscope_setup(self):
-        """
-        Initializes the oscilloscope (e.g., configures trigger settings).
-        Uses an external library method (controloscillo.ConfigTrigger).
-        """
-        if self.oscilloscope is None:
-            raise ValueError("Oscilloscope is not opened.")
-        self.ConfigTrigger()
-        self.ConfigMeasure()
-        self.ConfigSequence(self.Sequence)
-        for i, measureParam in enumerate(self.scopeMeasure):
-            self.NewMeasure(i+1, measureParam)
+
 
     def oscilloscope_save_picture(self, name: str):
         """
@@ -441,7 +680,10 @@ class SDS2104X_plus:
         if self.oscilloscope is None:
             raise ValueError("Oscilloscope is not opened.")
         
-        self.SavePicture(name, self.result_output_path.replace('/','\\'))
+        #self.SavePicture(name, self.result_output_path.replace('/','\\'))
+        
+        self.SavePicture(name, self.result_output_path) # Non inverted
+        self.SavePicture(f"{name}_inverted", self.result_output_path, True) # inverted
 
     def oscilloscope_read_history_only(self):
         """
@@ -493,6 +735,8 @@ class SDS2104X_plus:
 
 # ======================== USAGE EXAMPLE ========================
 if __name__ == "__main__":
+    from TDKZ650_1_U import TDKZ650_1_U
+    from tools import TOOL
     """
     Test program: voltage ramp with TDK Z650 + oscilloscope capture with SDS2104X+.
     - Configures the oscilloscope trigger (single mode, rising edge)
@@ -505,70 +749,139 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("  Ramp Capture Test - TDK Z650 + SDS2104X+")
     print("="*60 + "\n")
+    
+    tool = TOOL()
  
     # ── 1. Find config files ──────────────────────────────────────
-    jsonlist = find_json_files("../PhaseShift")
+    jsonlist = tool.find_json_files("../PhaseShift")
     if not jsonlist:
         print("❌ No JSON config file found in ../PhaseShift")
         raise SystemExit(1)
     config_path = jsonlist[0]
     print(f"Using config: {config_path}\n")
- 
+
+    
+
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+    address_oscillo = config.get("AddressOSCILLO", "None")
+    address_oscillo_high = config.get("AddressOSCILLOhigh", "None")
+    
+    print(f"{address_oscillo} & {address_oscillo_high}")
+
     # ── 2. Instantiate instruments ────────────────────────────────
-    scope = SDS2104X_plus(config_path=config_path)
-    tdk   = TDKZ650_1_U(config_path=config_path)
+    scope = SDS2104X_plus(config_path=config_path, address= address_oscillo)
+    if address_oscillo_high != "None":
+        scope_high = SDS2104X_plus(config_path=config_path, address=address_oscillo_high)
+    tdk = TDKZ650_1_U(config_path=config_path)
  
     try:
-        # ── 3. Open oscilloscope ──────────────────────────────────
-        print("1. Opening oscilloscope...")
-        scope.open_oscilloscope()
-        print("   ✓ Oscilloscope opened\n")
+
+        for step in range(2):
+            voltage = (step * 20) + 20
+            scope_high.VoltageWrite = voltage
+            scope.open_oscilloscope()
+            scope_high.open_oscilloscope()
+            tdk.open_hv_power_supply()
+
+            scope.oscilloscope_setup()
+            scope_high.oscilloscope_high_setup()
+            
+            time.sleep(5)
+
+            tdk.power_supply_output_change(state='ON', delay=tdk.power_supply_output_delay)
+            tdk.power_set_voltage(voltage=0, delay=tdk.power_supply_ramp_delay)
+
+            tdk.power_supply_voltage_ramp_up(
+                voltage    = voltage,
+                step_value = 4,
+                start_value= 0,
+                delay      = 0.1
+            )
+
+            time.sleep(2)
+
+            tdk.power_supply_voltage_ramp_down(
+                start_voltage = voltage,
+                end_value     = 0,
+                step_value    = -4,
+                delay         = 0.1
+            )
+
+            tdk.power_set_voltage(voltage=0, delay=tdk.power_supply_ramp_delay)
+            tdk.power_supply_output_change(state='OFF', delay=tdk.power_supply_output_delay)
+            
+            time.sleep(1)
+
+            scope_high.oscilloscope_save_picture(f"Frames_High_{voltage}V")
+            
+            #time.sleep(1)
+            
+            tdk.close_hv_power_supply()
+            scope.close_oscilloscope()
+            scope_high.close_oscilloscope()
+
+
+            time.sleep(1)
+
+        # # ── 3. Open oscilloscope ──────────────────────────────────
+        # print("1. Opening oscilloscope...")
+        # scope.open_oscilloscope()
+        # print("   ✓ Oscilloscope opened\n")
  
-        # ── 4. Configure oscilloscope ─────────────────────────────
-        #    - Edge trigger, rising, source EX5, level 700 mV
-        #    - Single acquisition mode  (waits for one trigger event)
-        #    - Timebase 2 µs/div
-        print("2. Configuring oscilloscope...")
-        scope.oscilloscope_setup()
-        print("   ✓ Oscilloscope configured\n")
+        # # ── 4. Configure oscilloscope ─────────────────────────────
+        # #    - Edge trigger, rising, source EX5, level 700 mV
+        # #    - Single acquisition mode  (waits for one trigger event)
+        # #    - Timebase 2 µs/div
+        # print("2. Configuring oscilloscope...")
+        # scope.oscilloscope_setup()
+        # print("   ✓ Oscilloscope configured\n")
  
-        # ── 5. Ramp up and ramp down voltage with TDK power supply ───────────────
-        print("3. Ramping up and down voltage on TDK power supply...")
-        tdk.TDK_ramp_up_and_down_example()
-        print("   ✓ Voltage ramp complete\n")
+        # # ── 5. Ramp up and ramp down voltage with TDK power supply ───────────────
+        # print("3. Ramping up and down voltage on TDK power supply...")
+        # tdk.TDK_ramp_up_and_down_example()
+        # print("   ✓ Voltage ramp complete\n")
         
  
-        # ── 6. Wait for oscilloscope to finish its acquisition ────
-        acquisition_wait = 20.0   # seconds — We wait long enough for the acquisition
-        print(f"8. Waiting {acquisition_wait} s for oscilloscope acquisition...")
-        time.sleep(acquisition_wait)
-        print("   ✓ Acquisition window elapsed\n")
+        # # ── 6. Wait for oscilloscope to finish its acquisition ────
+        # acquisition_wait = 20.0   # seconds — We wait long enough for the acquisition
+        # print(f"8. Waiting {acquisition_wait} s for oscilloscope acquisition...")
+        # time.sleep(acquisition_wait)
+        # print("   ✓ Acquisition window elapsed\n")
  
-        # ── 7. Save screenshot ───────────────────────────────────
-        screenshot_name = f"ramp_capture_{time.strftime('%Y%m%d_%H%M%S')}"
-        save_path = scope.result_output_path if scope.result_output_path else "./"
-        print(f"9. Saving screenshot  →  {save_path}/scope{screenshot_name}.bmp ...")
-        scope.SavePicture(name=screenshot_name, path=save_path, inverted=False)
-        scope.SavePicture(name=screenshot_name, path=save_path, inverted=True)
-        print("   ✓ Screenshots saved (normal + inverted)\n")
+        # # ── 7. Save screenshot ───────────────────────────────────
+        # screenshot_name = f"ramp_capture_{time.strftime('%Y%m%d_%H%M%S')}"
+        # save_path = scope.result_output_path if scope.result_output_path else "./"
+        # print(f"9. Saving screenshot  →  {save_path}/scope{screenshot_name}.bmp ...")
+        # scope.SavePicture(name=screenshot_name, path=save_path, inverted=False)
+        # scope.SavePicture(name=screenshot_name, path=save_path, inverted=True)
+        # print("   ✓ Screenshots saved (normal + inverted)\n")
  
-        # ── 8. Stabilisation hold ────────────────────────────────
-        print("10. Holding at target voltage for 2 s...")
-        time.sleep(2)
-        print("    ✓ Hold complete\n")
+        # # ── 8. Stabilisation hold ────────────────────────────────
+        # print("10. Holding at target voltage for 2 s...")
+        # time.sleep(2)
+        # print("    ✓ Hold complete\n")
  
 
-        # ── 9. Close oscilloscope ─────────────
-        print("14. Closing oscilloscope...")
-        scope.close_oscilloscope()
-        print("    ✓ Oscilloscope closed\n")
+        # # ── 9. Close oscilloscope ─────────────
+        # print("14. Closing oscilloscope...")
+        # scope.close_oscilloscope()
+        # print("    ✓ Oscilloscope closed\n")
+
  
     except Exception as e:
         print(f"\n❌ Error: {e}\n")
         import traceback
         traceback.print_exc()
+        tdk.close_hv_power_supply()
+        scope.close_oscilloscope()
+        scope_high.close_oscilloscope()
  
     finally:
+        tdk.close_hv_power_supply()
+        scope.close_oscilloscope()
+        scope_high.close_oscilloscope()
         print("="*60)
         print("  Test SDS2104X+ completed")
         print("="*60 + "\n")

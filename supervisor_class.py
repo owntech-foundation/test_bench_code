@@ -33,7 +33,7 @@ class Supervisor:
       3) Handle data (plotting, CSV export, etc.).
     """
 
-    def __init__(self, config_path: str = "parameters.json", sdm_voltage=None, sdm_current=None, sds_oscilloscope=None, tdk_power_supply=None, ressource_manager: visa.ResourceManager = None): 
+    def __init__(self, config_path: str = "parameters.json", sdm_voltage=None, sdm_current=None, sds_oscilloscope=None, sds_oscilloscope_high=None, tdk_power_supply=None, ressource_manager: visa.ResourceManager = None): 
         """
         Constructor to initialize the Supervisor class.
         
@@ -64,10 +64,13 @@ class Supervisor:
         self.multimeter_current = sdm_current
         self.multimeter_voltage = sdm_voltage
         self.base_oscilloscope = sds_oscilloscope
+        self.base_oscilloscope_high = sds_oscilloscope_high
         self.power_supply = tdk_power_supply
         self.microcontroller = None  
 
         self.base_oscilloscope.result_output_path = self.result_output_path
+        if self.base_oscilloscope_high is not None:
+            self.base_oscilloscope_high.result_output_path = self.result_output_path
 
         self.delay = self.config['delay']
         self.delay2 = self.config['delay2']
@@ -162,6 +165,10 @@ class Supervisor:
         self.base_oscilloscope.open_oscilloscope()
         time.sleep(0.5)
 
+        if self.base_oscilloscope_high is not None:
+            self.base_oscilloscope_high.open_oscilloscope()
+            time.sleep(0.5)
+
     def setup_all_devices(self):
         """
         Setups all devices (DMMs, oscilloscope, microcontroller & power supply).
@@ -172,6 +179,9 @@ class Supervisor:
         self.base_oscilloscope.oscilloscope_setup()
         time.sleep(0.5)
 
+        if self.base_oscilloscope_high is not None:
+            self.base_oscilloscope_high.oscilloscope_high_setup()
+            time.sleep(0.5)
 
         self.multimeter_current.dmm_setup_current_testbench()
         time.sleep(0.5)
@@ -205,6 +215,12 @@ class Supervisor:
             self.base_oscilloscope.close_oscilloscope()
         except Exception as e:
             errors.append(f"Failed to close oscilloscope: {e}")
+
+        if self.base_oscilloscope_high is not None:
+            try:
+                self.base_oscilloscope_high.close_oscilloscope()
+            except Exception as e:
+                errors.append(f"Failed to close high oscilloscope: {e}")
         try:
             self.close_microcontroller()
         except Exception as e:
@@ -330,7 +346,7 @@ class Supervisor:
         if self.microcontroller is None:
             raise ValueError("Microcontroller is not opened.")
 
-        for phase_val in range(phase_init, phase_final+1, step):
+        for phase_val in range(phase_init, phase_final+2, step):
             msg = self.microcontroller.sendCommand("PHASE_SHIFT", "LEG2", phase_val, delay=self.delay_com)
             print(f"Set phase shift={phase_val}, msg={msg}")
 

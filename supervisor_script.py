@@ -7,6 +7,7 @@
 # > Adapted to run all json files in a folder
 ###############################################
 
+import json
 import os
 import time
 import matplotlib.pyplot as plt
@@ -27,10 +28,25 @@ def runner(config_path):
 
     # Create a ressource manager instance to be shared among all devices
     ressource_manager = visa.ResourceManager()
+
+    #Read oscilloscope address from config file
+    with open(config_path, 'r') as f:
+                config = json.load(f)
+
+    oscillo_adress = config.get("AddressOSCILLO", None)
+    oscillo_adress_high = config.get("AddressOSCILLOhigh", None)
+    print(f"{oscillo_adress} & {oscillo_adress_high}")
+
+
     # Create device instances
     sdm3065x_for_current = SDM3065X("current", config_path, ressource_manager=ressource_manager)
     sdm3065x_for_voltage = SDM3065X("voltage", config_path, ressource_manager=ressource_manager)
-    sds2104x_plus = SDS2104X_plus(config_path, ressource_manager=ressource_manager)
+    sds2104x_plus = SDS2104X_plus(config_path, ressource_manager=ressource_manager, address=oscillo_adress)
+
+    if oscillo_adress_high != None:
+        sds2104x_plus_high = SDS2104X_plus(config_path, ressource_manager=ressource_manager, address=oscillo_adress_high)
+    else: 
+        sds2104x_plus_high = None
     tdkz650_1_u = TDKZ650_1_U(config_path, ressource_manager=ressource_manager)
 
     # Create Supervisor instance (loads config from specified .json file)
@@ -38,6 +54,7 @@ def runner(config_path):
                      sdm_current=sdm3065x_for_current,
                      sdm_voltage=sdm3065x_for_voltage,
                      sds_oscilloscope=sds2104x_plus,
+                     sds_oscilloscope_high=sds2104x_plus_high,
                      tdk_power_supply=tdkz650_1_u,
                      ressource_manager=ressource_manager)
 
@@ -179,6 +196,12 @@ def runner(config_path):
 
             # new function that deals with screenshots, csv data, and measure for each frame
             sup.base_oscilloscope.oscilloscope_save_results()
+            sup.base_oscilloscope_high.oscilloscope_save_results_high()
+
+            time.sleep(1)  # Wait for the oscilloscope to finish saving results
+            sup.base_oscilloscope.oscilloscope_setup_clean()
+
+
         except Exception as e:
             errors.append(f"Failed to read and/or save Oscilloscope: {e}")
             
