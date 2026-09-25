@@ -11,7 +11,7 @@ import pyvisa as visa
 import numpy as np
 import matplotlib.pyplot as plt
 
-#from tools import TOOL
+
 
 
 class TDKZ650_1_U:
@@ -31,8 +31,8 @@ class TDKZ650_1_U:
 
         # Create PyVISA Resource Manager
         if ressource_manager is None:
-            #self.rm = visa.ResourceManager()
-            self.rm = None
+            self.rm = visa.ResourceManager()
+            #self.rm = None
         else:
             self.rm = ressource_manager
             print("RM tdk")
@@ -370,6 +370,8 @@ if __name__ == "__main__":
     """
     Example usage of the TDKZ650_1_U class for power supply control.
     """
+    from tools import TOOL
+    
     print("\n" + "="*60)
     print("  TDKZ650_1_U Power Supply Controller - Example Usage")
     print("="*60 + "\n")
