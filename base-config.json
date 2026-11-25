@@ -13,6 +13,7 @@
     "power_supply_output_delay": 0.3,
     "power_supply_ramp_delay": 0.1,
 
+    "Limited_PHI": 175,
     "DutyPWM": 0.5,
     "frequencyPWM": [50000],
     "DeadTimePWM": 600,

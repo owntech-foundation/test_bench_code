@@ -6,10 +6,12 @@
 # To bulk generate Json config
 # For opposition test bench
 # GPL v3
+# Rev Maxime Ferrand 2024-06-24 : Phi limitation between 0 and Limited_PHI in baseconfig. 
 
 import numpy as np
 import json
 import os
+import sys
 
 # -----------------------------
 # Defenitions
@@ -94,6 +96,7 @@ if __name__ == "__main__":
     nbPointsV = base_config['nbPointsV']
     nbPointsI = base_config['nbPointsI']
     InitialPhaseShiftPWM = base_config['InitialPhaseShiftPWM']
+    Limited_PHI = base_config['Limited_PHI']
 
     Vdc = np.linspace(Vmin, Vmax, nbPointsV)
     print(f"Voltage steps:\n{Vdc}")
@@ -108,6 +111,16 @@ if __name__ == "__main__":
         # Phase Shift Mode
         delta_I = Ipeak[:, None]*2  # phi is calculated with delta I, but we set the peak current that is switched
         Phi = np.round(360 * delta_I * InductorL * freq * 1e-6 / Vdc, decimals=0)  # in degrees
+
+        if np.any(Phi < 0) or np.any(Phi > Limited_PHI):
+            print(f"##############################################")
+            print(f"ERROR: Phase shift values out of bounds for {freq_khz} kHz. Clipping to [0, {Limited_PHI}].") 
+            #Phi need to be less than 180 in theory, but we have to count dead time, so we limit to 175 degrees (estimated value, need to be verified).
+            print(f"Verify and change your current or voltage or frequency range to avoid this issue and regenerate the json files.") 
+            print(f"##############################################")
+            #Phi = np.clip(Phi, 0, Limited_PHI)
+            break  # Stop the generation if values are out of bounds
+
         print(f"\nPhase shift steps for {freq_khz} kHz:\n{Phi}")
         folder1_path = 'PhaseShift'
         autoGenerateJson(base_config, folder1_path, Phi, Vdc, [freq], mode="Phase")
