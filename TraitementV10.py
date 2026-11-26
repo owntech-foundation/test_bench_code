@@ -10,12 +10,9 @@ import re
 # Project Structure:
 # (voir description plus haut)
 
-# Directory configuration
-simulations_folder = "PhaseShift"
-excel_folder = "excel"
-os.makedirs(excel_folder, exist_ok=True)
 
-def traiter_dossier(path, folder):
+
+def traiter_dossier(path, folder, excel_folder=None):
     print(f"\n[Conversion] Folder {folder}")
     fichier_tension, fichier_courant = None, None
 
@@ -74,11 +71,11 @@ def traiter_dossier(path, folder):
     else:
         print("  [No current file found]")
 
-def process_voltage(vlevel, freq, all_data):
+def process_voltage(vlevel, freq, all_data, base=None, excel_folder=None, outdir=None):
     print(f"\n========== PROCESSING {vlevel}V @ {freq}Hz ==========")
-    base = os.path.dirname(os.path.abspath(__file__))
+    #base = os.path.dirname(os.path.abspath(__file__))
 
-    cfg = json.load(open(os.path.join(base, "base-config.json")))
+    cfg = json.load(open(os.path.join("base-config.json")))
     TotalR, L = cfg["TotalR"], cfg["InductorL"]
 
     courant_file = os.path.join(excel_folder, f"Voltage_{vlevel}_{freq//1000}kHz_courant.xlsx")
@@ -153,16 +150,13 @@ def process_voltage(vlevel, freq, all_data):
     all_data.append((vlevel, df, freq))
 
     # === Sauvegarde CSV ===
-    outdir = "sauvegarde"
-    os.makedirs(outdir, exist_ok=True)
+    
     excel_filename = os.path.join(outdir, f"data_{vlevel}V_{freq//1000}kHz.xlsx")
     df.to_excel(excel_filename, index=False)
     print(f"  → Données sauvegardées dans: {excel_filename}")
 
 
-def plot_all_graphs(all_data, freq, ts):
-    outdir = "sauvegarde"
-    os.makedirs(outdir, exist_ok=True)
+def plot_all_graphs(all_data, freq, ts, outdir=None):
     print(f"\n[Graph] E_off vs I_peak")
     plt.figure(figsize=(10, 6))
     for v, df, _ in all_data:
@@ -177,8 +171,7 @@ def plot_all_graphs(all_data, freq, ts):
     plt.savefig(fn)
     print(f"  → Saved: {fn}")
 
-def plot_graphs_without_last_point(all_data, freq, ts):
-    outdir = "sauvegarde"
+def plot_graphs_without_last_point(all_data, freq, ts, outdir=None):
     print(f"\n[Graph] E_off vs I_peak (excluding last point)")
     plt.figure(figsize=(10, 6))
     for v, df, _ in all_data:
@@ -190,12 +183,11 @@ def plot_graphs_without_last_point(all_data, freq, ts):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    fn = os.path.join("sauvegarde", f"graph_Eoff_vs_Ipeak_trimmed_{freq}Hz_{ts}.pdf")
+    fn = os.path.join(outdir, f"graph_Eoff_vs_Ipeak_trimmed_{freq}Hz_{ts}.pdf")
     plt.savefig(fn)
     print(f"  → Saved: {fn}")
 
-def calculer_puissances_point_par_point(all_data, freq, ts):
-    outdir = "sauvegarde"
+def calculer_puissances_point_par_point(all_data, freq, ts, excel_folder=None, outdir=None):
     print(f"\n[Graph] Instantaneous Power P = V × I")
     plt.figure(figsize=(10, 6))
     for v, _, _ in all_data:
@@ -216,12 +208,34 @@ def calculer_puissances_point_par_point(all_data, freq, ts):
     print(f"  → Saved: {fn}")
 
 if __name__ == "__main__":
-    base = os.path.dirname(os.path.abspath(__file__))
+
+    base_config_path = os.path.join("base-config.json")
+    with open(base_config_path, 'r') as f:
+        base_config = json.load(f)
+
+    folder_parent = base_config['ParentFolder']
+    folder_experiment = base_config['Experiment_name']
+
+    base = os.path.join(folder_parent, folder_experiment)
+
+    
+    excel_folder = "excel"
+    excel_folder = os.path.join(base, excel_folder)
+    os.makedirs(excel_folder, exist_ok=True)
+
+    simulations_folder = "PhaseShift"
+    simulations_folder = os.path.join(base, simulations_folder)
+    os.makedirs(simulations_folder, exist_ok=True)
+
+    outdir = "sauvegarde"
+    outdir = os.path.join(base, outdir)
+    os.makedirs(outdir, exist_ok=True)
+
     freq_dict = {}
 
     for folder in os.listdir(simulations_folder):
         if folder.startswith("Voltage_"):
-            traiter_dossier(os.path.join(simulations_folder, folder), folder)
+            traiter_dossier(os.path.join(simulations_folder, folder), folder, excel_folder=excel_folder)
 
             all_phase_files = glob.glob(os.path.join(simulations_folder, folder, "PhaseShift_*.json"))
             for phase_file in all_phase_files:
@@ -237,12 +251,12 @@ if __name__ == "__main__":
         print(f"\n\n================= GLOBAL PROCESSING {freq_hz//1000}kHz =================")
         all_data = []
         for v, folder in voltages:
-            process_voltage(v, freq_hz, all_data)
+            process_voltage(v, freq_hz, all_data, base=base, excel_folder=excel_folder, outdir=outdir)
 
         if all_data:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            plot_all_graphs(all_data, freq_hz, ts)
-            plot_graphs_without_last_point(all_data, freq_hz, ts)
-            calculer_puissances_point_par_point(all_data, freq_hz, ts)
+            plot_all_graphs(all_data, freq_hz, ts, outdir=outdir)
+            plot_graphs_without_last_point(all_data, freq_hz, ts, outdir=outdir)
+            calculer_puissances_point_par_point(all_data, freq_hz, ts, excel_folder=excel_folder, outdir=outdir)
 
     plt.show()

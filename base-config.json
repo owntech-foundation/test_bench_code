@@ -15,8 +15,8 @@
 
     "Limited_PHI": 175,
     "DutyPWM": 0.5,
-    "frequencyPWM": [50000],
-    "DeadTimePWM": 600,
+    "frequencyPWM": [50000, 60000],
+    "DeadTimePWM": 300,
     "VoltageLimit": 100,
     "CurrentLimit": 0.3,
     "timestep": 0.1,
@@ -74,7 +74,10 @@
     "PhaseInit": 0,
     "PhaseFinal": 180,
     "PhaseStep": 30,
-    "InitialPhaseShiftPWM": 3
+    "InitialPhaseShiftPWM": 3,
+
+    "ParentFolder": "/home/raspberry/Documents/Opposition_Results/",
+    "Experiment_name": "test_folder_and_limit_phi_24_11_2026"
 
 
 }

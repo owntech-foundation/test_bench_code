@@ -7,6 +7,9 @@
 # For opposition test bench
 # GPL v3
 # Rev Maxime Ferrand 2024-06-24 : Phi limitation between 0 and Limited_PHI in baseconfig. 
+# Rev Maxime Ferrand 2024-06-24 : Added and adapted Stephane Martin's code to generate the json files in a specific folder.
+
+from datetime import datetime
 
 import numpy as np
 import json
@@ -98,6 +101,14 @@ if __name__ == "__main__":
     InitialPhaseShiftPWM = base_config['InitialPhaseShiftPWM']
     Limited_PHI = base_config['Limited_PHI']
 
+    folder_parent = base_config['ParentFolder']
+    folder_experiment = base_config['Experiment_name']
+
+    if  os.path.exists(os.path.join(folder_parent, folder_experiment)):
+        # stop program execution if the folder already exists
+        raise ValueError(f"The experiment folder '{folder_experiment}' already exists. Please change the experiment name in the base-config.json file to avoid overwriting existing data.")
+    
+
     Vdc = np.linspace(Vmin, Vmax, nbPointsV)
     print(f"Voltage steps:\n{Vdc}")
 
@@ -105,7 +116,7 @@ if __name__ == "__main__":
     print(f"Current steps:\n{Ipeak}")
 
     for freq in frequency_list:
-        freq_khz = int(freq / 1000)
+        freq_khz = int(freq / 1000) 
         print(f"\n=== Génération pour {freq_khz} kHz ===")
 
         # Phase Shift Mode
@@ -122,12 +133,12 @@ if __name__ == "__main__":
             break  # Stop the generation if values are out of bounds
 
         print(f"\nPhase shift steps for {freq_khz} kHz:\n{Phi}")
-        folder1_path = 'PhaseShift'
+        folder1_path = os.path.join(folder_parent, folder_experiment, 'PhaseShift')
         autoGenerateJson(base_config, folder1_path, Phi, Vdc, [freq], mode="Phase")
 
         # Delta Alpha Mode
         DeltaAlpha = Ipeak[:, None] * TotalR / Vdc
         DeltaAlpha1000 = np.floor(1000 * DeltaAlpha)
         print(f"\nDelta Alpha steps x1000 for {freq_khz} kHz:\n{DeltaAlpha1000}")
-        folder2_path = 'DutyShift'
+        folder2_path = os.path.join(folder_parent, folder_experiment, 'DutyShift')
         autoGenerateJson(base_config, folder2_path, DeltaAlpha1000, Vdc, [freq], mode="Duty")

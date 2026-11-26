@@ -13,6 +13,8 @@ import time
 import matplotlib.pyplot as plt
 import pyvisa as visa
 
+import shutil
+
 from supervisor_class import Supervisor
 
 from lib.SDM3065X import SDM3065X
@@ -215,10 +217,31 @@ def runner(config_path):
 # -----------------------------
 if __name__ == "__main__":
     tool = TOOL()
-    jsonlist = tool.find_json_files("PhaseShift")
+
+    base_config_path = os.path.join("base-config.json")
+    with open(base_config_path, 'r') as f:
+        base_config = json.load(f)
+
+    folder_parent = base_config['ParentFolder']
+    folder_experiment = base_config['Experiment_name']
+
+    
+    # Find all json files in the Parent directory/Experiments directory that match the pattern "PhaseShift"
+    place_to_search_path = os.path.join(folder_parent, folder_experiment, "PhaseShift")
+
+    # check if there is a file base-config-original.json in the experiment folder, if yes, raise an error to avoid overwriting existing data
+    if os.path.exists(os.path.join(folder_parent, folder_experiment, "base-config-original.json")):
+        raise ValueError(f"The experiment folder '{folder_experiment}' already contains a 'base-config-original.json' file. Please change the experiment name in the base-config.json file to avoid overwriting existing data.")
+
+
+    jsonlist = tool.find_json_files(place_to_search_path)
+    print(f"Found {len(jsonlist)} json files in {place_to_search_path} for processing.")
     
     for jsonfile in jsonlist:
         print(jsonfile)
         runner(jsonfile)
         print("Done!\n\n")
         time.sleep(2)
+
+    #copy the base-config.json file to the experiment folder for reference
+    shutil.copy(os.path.join("base-config.json"), os.path.join(folder_parent, folder_experiment, "base-config-original.json"))
